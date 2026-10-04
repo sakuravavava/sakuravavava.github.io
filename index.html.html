@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AION2 管理ダッシュボード</title>
+  <style>
+    :root {
+      --card-bg: rgba(14, 16, 26, 0.82);
+      --card-border: rgba(120, 150, 200, 0.25);
+      --accent-color: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.4);
+      --text-main: #f1f5f9;
+      --text-sub: #94a3b8;
+      --text-highlight: #ef4444;
+      --font-mono: 'Consolas', 'Courier New', monospace;
+      --timer-bg: rgba(239, 68, 68, 0.15);
+      --timer-border: rgba(239, 68, 68, 0.4);
+      --timer-color: #fca5a5;
+      --artifact-bg: rgba(245, 158, 11, 0.15);
+      --artifact-border: rgba(245, 158, 11, 0.4);
+      --artifact-color: #fcd34d;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      box-sizing: border-box;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+      background-size: cover;
+      background-position: center top;
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(8, 10, 16, 0.45);
+      backdrop-filter: blur(2px);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .controls-bar {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .app-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: #e0e7ff;
+      text-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* 亀裂・アーティファクト戦 ＆ 現在時刻パネル */
+    .rift-panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .panel-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 10px;
+    }
+
+    .time-display {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 4px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .timers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px;
+    }
+
+    .timer-card {
+      padding: 10px 14px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .timer-card.rift {
+      background: var(--timer-bg);
+      border: 1px solid var(--timer-border);
+      color: var(--timer-color);
+    }
+
+    .timer-card.artifact {
+      background: var(--artifact-bg);
+      border: 1px solid var(--artifact-border);
+      color: var(--artifact-color);
+    }
+
+    .schedule-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .schedule-title {
+      font-size: 0.95rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .schedule-hours {
+      font-size: 0.78rem;
+      opacity: 0.85;
+    }
+
+    .countdown-val {
+      font-family: var(--font-mono);
+      font-weight: bold;
+      font-size: 0.95rem;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 4px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    /* タブ切り替えバー */
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      background: var(--card-bg);
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-sub);
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.25s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      background: var(--accent-color);
+      color: #ffffff;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    /* ページ表示制御 */
+    .page-content {
+      display: none;
+    }
+    .page-content.active {
+      display: block;
+    }
+
+    /* 共通ヘッダー・カード */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 16px 20px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .progress-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .progress-title span {
+      color: #818cf8;
+      font-size: 1.4rem;
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .reset-info {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-count {
+      font-family: var(--font-mono);
+      color: var(--text-sub);
+      font-size: 0.9rem;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .task-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .task-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .checkbox {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #475569;
+      border-radius: 5px;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .task-item.completed .checkbox {
+      background-color: var(--accent-color);
+      border-color: var(--accent-color);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .task-item.completed .checkbox::after {
+      content: '✓';
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .task-item.completed .task-main {
+      text-decoration: line-through;
+      color: var(--text-sub);
+    }
+
+    .task-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .task-main {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .task-sub {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      margin-top: 3px;
+    }
+
+    /* メインチャート用スタイル */
+    .chart-section {
+      margin-bottom: 24px;
+    }
+
+    .chart-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid rgba(99, 102, 241, 0.3);
+    }
+
+    .chart-section-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #818cf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chart-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chart-step {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .chart-step:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .chart-step.completed {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    .chart-step.completed .task-main {
+      text-decoration: line-through;
+      color: var(--text-sub);
+    }
+
+    .btn-action {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-action:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-reset:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+
+    /* 「ステータス/装備強化」「ペット」ページ用スタイル */
+    .status-details-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .stat-card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #818cf8;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 10px;
+    }
+
+    .stat-item-row {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .stat-item-name {
+      font-weight: bold;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-item-name.highlight {
+      color: var(--text-highlight);
+    }
+
+    .stat-item-desc {
+      color: var(--text-sub);
+      font-size: 0.8rem;
+      margin-top: 3px;
+    }
+
+    .enhance-flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .enhance-step {
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #c7d2fe;
+      font-weight: bold;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .enhance-arrow {
+      color: var(--text-sub);
+      font-weight: bold;
+    }
+
+    .badge-op {
+      display: inline-block;
+      background: rgba(99, 102, 241, 0.25);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #c7d2fe;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      margin: 2px 4px 2px 0;
+    }
+
+    .badge-red {
+      background: rgba(239, 68, 68, 0.25);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+
+    .badge-amber {
+      background: rgba(245, 158, 11, 0.25);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: #fcd34d;
+    }
+
+    /* 各種リンク用スタイル */
+    .links-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .link-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      text-decoration: none;
+      color: var(--text-main);
+      transition: all 0.25s;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .link-card:hover {
+      transform: translateY(-2px);
+      border-color: #818cf8;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.25);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .link-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    .link-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .link-url {
+      font-size: 0.78rem;
+      color: var(--text-sub);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: var(--font-mono);
+    }
+
+    .link-icon {
+      font-size: 1.4rem;
+      color: #818cf8;
+      flex-shrink: 0;
+    }
+
+    .footer-info {
+      margin-top: 20px;
+      padding: 12px 20px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      letter-spacing: 0.5px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    #bg-upload {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 上部コントロールバー -->
+    <div class="controls-bar">
+      <div class="app-title">
+        <span>⚔️</span> AION2 管理ダッシュボード
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn-action" onclick="document.getElementById('bg-upload').click()">🖼️ 背景画像を変更</button>
+        <input type="file" id="bg-upload" accept="image/*" onchange="handleBgUpload(event)">
+        <button class="btn-action" onclick="downloadSelf()">📥 ファイルをダウンロード</button>
+      </div>
+    </div>
+
+    <!-- 亀裂・アーティファクト戦 ＆ 現在時刻パネル -->
+    <div class="rift-panel">
+      <div class="panel-top-row">
+        <div style="font-weight: bold; font-size: 1rem; color: #e0e7ff; display: flex; align-items: center; gap: 8px;">
+          <span>⏱️️ イベントスケジュール ＆ タイマー</span>
+        </div>
+        <div class="time-display" id="japan-time">
+          🇯🇵 日本時間 --:--:--
+        </div>
+      </div>
+
+      <div class="timers-grid">
+        <!-- 亀裂タイマー -->
+        <div class="timer-card rift">
+          <div class="schedule-label">
+            <div class="schedule-title">🌀 亀裂時間</div>
+            <div class="schedule-hours">2 / 5 / 8 / 11 / 14 / 17 / 20 / 23 時</div>
+          </div>
+          <div class="countdown-val" id="rift-timer">⏳ --:--:--</div>
+        </div>
+
+        <!-- アーティファクト戦タイマー -->
+        <div class="timer-card artifact">
+          <div class="schedule-label">
+            <div class="schedule-title">⚔️ アーティファクト戦</div>
+            <div class="schedule-hours">月 / 木 / 土 曜日 21:00</div>
+          </div>
+          <div class="countdown-val" id="artifact-timer">⏳ --:--:--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ページ切り替えタブ -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('checklist-page', this)">📋 日課 / 週課 リスト</button>
+      <button class="tab-btn" onclick="switchTab('chart-page', this)">📊 メインチャート</button>
+      <button class="tab-btn" onclick="switchTab('status-page', this)">⚙️ ステータス/装備強化</button>
+      <button class="tab-btn" onclick="switchTab('pet-page', this)">🐾 ペット</button>
+      <button class="tab-btn" onclick="switchTab('links-page', this)">🔗 各種リンク</button>
+    </div>
+
+    <!-- ページ 1: 日課 / 週課 リスト -->
+    <div id="checklist-page" class="page-content active">
+      <div class="header">
+        <div class="progress-title">
+          本日の進捗 <span id="overall-progress">0%</span>
+        </div>
+        <div class="reset-info">
+          <div>🔄 デイリーリセット: 16:00</div>
+          <div>📅 ウィークリーリセット: 水曜日 16:00</div>
+          <button class="btn-action btn-reset" onclick="resetAllChecklist()">リストリセット</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">☀️ デイリー (日課)</div>
+            <div class="card-count" id="count-daily">0/8</div>
+          </div>
+          <ul class="task-list" id="list-daily"></ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📅 ウィークリー (週課)</div>
+            <div class="card-count" id="count-weekly">0/13</div>
+          </div>
+          <ul class="task-list" id="list-weekly"></ul>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">∞ 常設 / 1回限り</div>
+            <div class="card-count" id="count-static">0/8</div>
+          </div>
+          <ul class="task-list" id="list-static"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ページ 2: メインチャート -->
+    <div id="chart-page" class="page-content">
+      <div class="header">
+        <div class="progress-title">
+          チャート達成率 <span id="chart-progress">0%</span>
+        </div>
+        <div class="reset-info">
+          <div>🗺️ アイテムレベル別 進行＆育成ガイド</div>
+          <button class="btn-action btn-reset" onclick="resetChart()">チャートリセット</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <!-- ~IL1000 -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">🔰 ~IL1000 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section1"></div>
+        </div>
+
+        <!-- IL1000~ -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">⚔️ IL1000~ 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section2"></div>
+        </div>
+
+        <!-- IL1400~ -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">🛡 IL1400~ 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section3"></div>
+        </div>
+
+        <!-- IL1600~ -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">✨ IL1600~ 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section4"></div>
+        </div>
+
+        <!-- IL1900~ -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">⚡ IL1900~ 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section5"></div>
+        </div>
+
+        <!-- IL2100~ -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">🔥 IL2100~ 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section6"></div>
+        </div>
+
+        <!-- IL2200~ -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">🏆 IL2200~ 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section7"></div>
+        </div>
+
+        <!-- IL2500~ -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">🌟 IL2500~ 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section8"></div>
+        </div>
+
+        <!-- IL2800~ -->
+        <div class="chart-section">
+          <div class="chart-section-header">
+            <div class="chart-section-title">👑 IL2800~ 進行ガイド</div>
+          </div>
+          <div class="chart-flow" id="chart-list-section9"></div>
+        </div>
+
+        <!-- Tips -->
+        <div class="chart-section" style="margin-bottom:0;">
+          <div class="chart-section-header">
+            <div class="chart-section-title">💡 育成 Tips ＆ 注意事項</div>
+          </div>
+          <div class="chart-flow" id="chart-list-sectionTips"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ページ 3: ステータス/装備強化 -->
+    <div id="status-page" class="page-content">
+      <div class="header">
+        <div class="progress-title">
+          ステータス詳細 ＆ 装備育成ガイド
+        </div>
+        <div class="reset-info">
+          <div>📖 強化ルール・魔石・神石・魂刻印・ステータス効果</div>
+        </div>
+      </div>
+
+      <div class="status-details-grid">
+
+        <!-- 装備強化 ＆ ルーン方針 -->
+        <div class="card" style="border: 1px solid rgba(99, 102, 241, 0.4); background: rgba(14, 16, 26, 0.9);">
+          <div class="stat-card-title" style="font-size: 1.15rem; color: #a5b4fc;">
+            🛡️ 装備強化 ＆ ルーンの基本法則
+          </div>
+          
+          <div style="margin-bottom: 16px;">
+            <div style="font-weight: bold; color: #e2e8f0; margin-bottom: 6px;">🔥 強化優先順位</div>
+            <div class="enhance-flow">
+              <span class="enhance-step" style="background: rgba(239, 68, 68, 0.25); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5;">1. 武器</span>
+              <span class="enhance-arrow">➡</span>
+              <span class="enhance-step" style="background: rgba(245, 158, 11, 0.25); border-color: rgba(245, 158, 11, 0.5); color: #fcd34d;">2. ガードアクセ</span>
+              <span class="enhance-arrow">➡</span>
+              <span class="enhance-step">3. アミュレット / ベルト / 防具（まとめて育成）</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+            <div class="stat-item-row" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3);">
+              <div class="stat-item-name highlight">⚠️ ルーン強化ルール</div>
+              <div class="stat-item-desc" style="color: #cbd5e1; margin-top: 4px;">
+                ルーンは強化失敗時に壊れるため、安全のため一旦<strong style="color: #fca5a5;">「+1」止まり</strong>にし、予備が確保できたら叩くのが安全です。
+              </div>
+            </div>
+            <div class="stat-item-row" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3);">
+              <div class="stat-item-name" style="color: #6ee7b7;">✅ 装備強化値 10 までは失敗なし</div>
+              <div class="stat-item-desc" style="color: #cbd5e1; margin-top: 4px;">
+                装備品は強化値10段階目までは失敗ペナルティがないため安心して強化できます。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 魔石 ＆ 神石 ガイド -->
+        <div class="card">
+          <div class="stat-card-title">
+            💎 魔石 ＆ 神石 システムガイド
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <!-- 魔石 -->
+            <div class="stat-item-row" style="background: rgba(255, 255, 255, 0.04);">
+              <div class="stat-item-name" style="color: #818cf8; font-size: 0.95rem;">🔮 魔石の種類と装着方針</div>
+              <div class="stat-item-desc" style="color: #e2e8f0; font-size: 0.85rem; margin-top: 6px; line-height: 1.5;">
+                ・<strong>入手方法：</strong>通常石はモンスターからの<strong>ファーム</strong>で入手。アビス石は<strong>アビスショップ</strong>で交換。<br>
+                ・<strong>序盤の運用：</strong>まずはIL（アイテムレベル）を確保するため、オプション問わず高レアリティの魔石を優先して装着。<br>
+                ・<strong>PvEおすすめ：</strong>攻撃 / ダメージブースト系オプション<br>
+                ・<strong>PvPおすすめ：</strong>ビルドや対戦相手に合わせて各自選択
+              </div>
+            </div>
+
+            <!-- 神石 -->
+            <div class="stat-item-row" style="background: rgba(255, 255, 255, 0.04);">
+              <div class="stat-item-name" style="color: #fcd34d; font-size: 0.95rem;">⚡ 神石の装着 ＆ 入手</div>
+              <div class="stat-item-desc" style="color: #e2e8f0; font-size: 0.85rem; margin-top: 6px; line-height: 1.5;">
+                ・<strong>装着可能な部位：</strong>武器 / ガード部位<br>
+                ・<strong>入手方法：</strong>ハイドキューブ / 聖域 / 各種ショップ<br>
+                ・<strong>おすすめ効果：</strong>状態異常付与系が非常に強力
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 魂刻印 おすすめOP -->
+        <div class="card">
+          <div class="stat-card-title">
+            ✨ 部位別 魂刻印おすすめOP
+          </div>
+          <div class="stat-list">
+            <div class="stat-item-row">
+              <div class="stat-item-name highlight">⚔️ 武器 / ガード</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">戦闘速度</span>
+                <span class="badge-op">武器ダメージ増幅</span>
+                <span class="badge-op">ダメージ増幅</span>
+                <span class="badge-op">威力</span>
+                <span class="badge-op">正確</span>
+                <span class="badge-op">多段ヒット的中</span>
+                <span class="badge-op">攻撃力</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">🪖 頭 (ヘルメット)</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">強打</span>
+                <span class="badge-op">攻撃力増加</span>
+                <span class="badge-op">受ける治癒量</span>
+                <span class="badge-op">攻撃力</span>
+                <span class="badge-op">武器ダメージ耐性</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">🥋 肩 (ショルダー)</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">クリティカルダメージ増幅</span>
+                <span class="badge-op">強打</span>
+                <span class="badge-op">強パッシブ</span>
+                <span class="badge-op">攻撃力</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">🛡️ 胸 (チェスト)</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">ダメージ増幅</span>
+                <span class="badge-op">強パッシブ</span>
+                <span class="badge-op">攻撃力</span>
+                <span class="badge-op">武器ダメージ耐性</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">👖 ズボン (パンツ)</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">ダメージ耐性</span>
+                <span class="badge-op">攻撃力増加</span>
+                <span class="badge-op">完璧</span>
+                <span class="badge-op">強パッシブ</span>
+                <span class="badge-op">攻撃力</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">🧤 手 (グローブ)</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">戦闘速度</span>
+                <span class="badge-op">完璧</span>
+                <span class="badge-op">強パッシブ</span>
+                <span class="badge-op">攻撃力</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">👟 足 (シューズ)</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">移動速度</span>
+                <span class="badge-op">完璧</span>
+                <span class="badge-op">強パッシブ</span>
+                <span class="badge-op">攻撃力</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">🧥 マント</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">クリティカルダメージ耐性</span>
+                <span class="badge-op">強打</span>
+                <span class="badge-op">攻撃力増加</span>
+                <span class="badge-op">強パッシブ</span>
+                <span class="badge-op">攻撃力</span>
+                <span class="badge-op">武器ダメージ耐性</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">💎 イヤリング</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">移動速度</span>
+                <span class="badge-op">威力</span>
+                <span class="badge-op">正確</span>
+                <span class="badge-op">強パッシブ</span>
+                <span class="badge-op">攻撃力</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">📿 ネックレス</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">戦闘速度</span>
+                <span class="badge-op">威力</span>
+                <span class="badge-op">正確</span>
+                <span class="badge-op">強パッシブ</span>
+                <span class="badge-op">攻撃力</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name">💍 リング</div>
+              <div class="stat-item-desc" style="margin-top: 4px;">
+                <span class="badge-op">威力</span>
+                <span class="badge-op">正確</span>
+                <span class="badge-op">アクティブスキル</span>
+                <span class="badge-op">攻撃力</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 外周ステータス（時計回り） -->
+        <div class="card">
+          <div class="stat-card-title">
+            🔄 外周ステータス（時計回り順）
+          </div>
+          <div class="stat-list">
+            <div class="stat-item-row">
+              <div class="stat-item-name highlight">破壊</div>
+              <div class="stat-item-desc">攻撃力増加、完璧抵抗</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">死</div>
+              <div class="stat-item-desc">クリティカルヒット増加、再生貫通</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name highlight">知恵</div>
+              <div class="stat-item-desc">MPコスト軽減、スマイト</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">運命</div>
+              <div class="stat-item-desc">MP増加、耐久</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">スペース</div>
+              <div class="stat-item-desc">移動速度、ブロック増加</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name highlight">時間</div>
+              <div class="stat-item-desc">戦闘速度、スマイト耐性</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">生命</div>
+              <div class="stat-item-desc">HP増加、再生</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name highlight">幻想</div>
+              <div class="stat-item-desc">クールダウン減少、耐久貫通</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">自由</div>
+              <div class="stat-item-desc">正確さ増加、回避増加</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">正義</div>
+              <div class="stat-item-desc">防御力増加、完璧チャンス</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 中央＆基礎ステータス -->
+        <div class="card">
+          <div class="stat-card-title">
+            💎 基本 ＆ 基礎能力値
+          </div>
+          <div class="stat-list">
+            <div class="stat-item-row">
+              <div class="stat-item-name highlight">力 → 攻撃力増加</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">器用さ → 回避増加、ブロック増加、クリティカルヒット増加</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">精度 → 正確さ増加、クリティカルヒット増加</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">意志の力 → ステータス効果耐性</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">知能 → ステータス効果確率増加</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">体力 → HP増加</div>
+            </div>
+          </div>
+
+          <div class="stat-list" style="margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;">
+            <div class="stat-item-row">
+              <div class="stat-item-name">攻撃 → 基本攻撃力</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">防御 → 基本防御力</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">正確さ → 命中率に影響する、対象の回避、ブロック量によって相殺される</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">回避 → 相手の正確さを上回った時に回避が発生する、最大50%</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">クリティカルヒット → クリティカルヒットする確率で対象のクリティカルヒット抵抗によって減少する、最大80%</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">クリティカルヒット抵抗 → クリティカルヒットを受ける確率を減らす</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">HP / MP → 基本生命力 / 特定のスキル発動に必要</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">戦闘速度 → 攻撃速度、詠唱速度に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">移動速度 → 足が速くなる</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 戦闘・特殊属性効果 -->
+        <div class="card">
+          <div class="stat-card-title">
+            ⚔️ 特殊戦闘効果 ＆ 条件付き属性
+          </div>
+          <div class="stat-list">
+            <div class="stat-item-row">
+              <div class="stat-item-name">浸透 → 防御無視</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">マルチヒットチャンス → 攻撃が複数ヒットする確率、最大4ヒット</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">ブロック → パリーする確率、テンプラとクレリックのみシールドブロック判定もある、対象の正確さとブロック貫通の数値に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">耐久 → ダメージが半減する確率、対象の耐久貫通に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">再生 → 食べたダメージの一部を回復する確率、対象の再生貫通に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">完璧なチャンス → 武器の最大ダメージに基づいてダメージを増加させる確率、対象の完璧な抵抗に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name highlight">スマイト → 最終ダメージに基づいてダメージを大幅に増加させる (PvEは2倍 / PvPは1.5倍)、対象のスマイト抵抗に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">ステータス効果(スタンチャンス系) → 状態異常をいれる確率、対象の各ステータス耐性に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">回復ブースト → ヒール用に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">回復の到来 → 受けるヒール量に影響する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">クールダウン → スキルのクールダウンに影響する、最大60%</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">スタミナ → ダッシュ、回避で消耗する</div>
+            </div>
+            <div class="stat-item-row">
+              <div class="stat-item-name">飛行パワー → 飛行時のスタミナ</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ページ 4: ペット -->
+    <div id="pet-page" class="page-content">
+      <div class="header">
+        <div class="progress-title">
+          ペット育成 ＆ 分析ボード攻略ガイド
+        </div>
+        <div class="reset-info">
+          <div>🐾 魂収集・分析レベル・スロット別おすすめ厳選オプション</div>
+        </div>
+      </div>
+
+      <div class="status-details-grid">
+        <!-- 基本方針 -->
+        <div class="card" style="border: 1px solid rgba(99, 102, 241, 0.4); background: rgba(14, 16, 26, 0.9);">
+          <div class="stat-card-title" style="font-size: 1.15rem; color: #a5b4fc;">
+            🐾 ペット育成の基本方針 ＆ 分析レベル
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem; line-height: 1.6;">
+            <div class="stat-item-row" style="background: rgba(255, 255, 255, 0.04);">
+              <div class="stat-item-name" style="color: #818cf8;">🌾 1. 魂の獲得方法</div>
+              <div class="stat-item-desc" style="color: #e2e8f0; margin-top: 4px;">
+                フィールドでの<strong>ファーム（狩り）</strong>を通じてペットの魂を収集します。
+              </div>
+            </div>
+
+            <div class="stat-item-row" style="background: rgba(255, 255, 255, 0.04);">
+              <div class="stat-item-name" style="color: #fcd34d;">📈 2. 分析レベル 育成指針</div>
+              <div class="stat-item-desc" style="color: #e2e8f0; margin-top: 4px;">
+                分析レベルを段階的にアップさせます。<strong style="color: #fcd34d;">レベル9まではオプションの厳選をしなくてOK</strong>です。とにかくレベルを優先して上げましょう。
+              </div>
+            </div>
+
+            <div class="stat-item-row" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3);">
+              <div class="stat-item-name highlight">🔥 3. レベル9到達後の本格厳選</div>
+              <div class="stat-item-desc" style="color: #cbd5e1; margin-top: 4px;">
+                レベル9に到達した時点から、各スロットの本格的なオプション厳選を開始します。特に<strong style="color: #fca5a5;">スロット3およびスロット9の「赤等級」</strong>を最優先で狙いに行きます。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 一般ボード：スロット別おすすめOP -->
+        <div class="card">
+          <div class="stat-card-title">
+            🎯 一般ボード：スロット別狙い目オプション
+          </div>
+          <div class="stat-list">
+            <div class="stat-item-row" style="border-color: rgba(239, 68, 68, 0.4);">
+              <div class="stat-item-name highlight">🔴 スロット 3, 9（最優先・極めて重要）</div>
+              <div class="stat-item-desc" style="margin-top: 6px;">
+                <span class="badge-op badge-red">赤等級を狙う</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name" style="color: #fcd34d;">⚔️ スロット 2, 5, 8（攻撃系）</div>
+              <div class="stat-item-desc" style="margin-top: 6px;">
+                <span class="badge-op badge-amber">攻撃ボーナス</span>
+                <span class="badge-op badge-amber">最大攻撃力</span>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name" style="color: #6ee7b7;">🛡️ スロット 6（防御系）</div>
+              <div class="stat-item-desc" style="margin-top: 6px;">
+                <span class="badge-op">ダメージ耐性</span>
+                <span class="badge-op">各種防御オプション</span>
+                <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 4px;">※2, 5, 8の攻撃系厳選と並行して狙う</div>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div class="stat-item-name" style="color: #c7d2fe;">🎯 スロット 1, 4, 7（命中・クリティカル系）</div>
+              <div class="stat-item-desc" style="margin-top: 6px;">
+                <span class="badge-op">精度ボーナス</span>
+                <span class="badge-op">クリティカルヒット</span>
+                <span class="badge-op">ボスPvEダメージ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3, 9 スロットおすすめOP 優先度 -->
+        <div class="card">
+          <div class="stat-card-title">
+            ⭐ 3, 9 スロットおすすめOP 優先度ランキング
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="stat-item-row" style="background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.4);">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span class="stat-item-name highlight" style="font-size: 0.95rem;">🥇 優先度 1位（超強力・最優先）</span>
+                <div>
+                  <span class="badge-op badge-red">スマイト</span>
+                  <span class="badge-op badge-red">フロントダメージブースト（近接向け）</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="stat-item-row" style="background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.4);">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span class="stat-item-name" style="color: #fcd34d; font-size: 0.95rem;">🥈 優先度 2位（クラス特化）</span>
+                <div>
+                  <span class="badge-op badge-amber">バックアタックブースト（忍者向け）</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span class="stat-item-name" style="color: #a5b4fc; font-size: 0.95rem;">🥉 優先度 3位（火力強化）</span>
+                <div>
+                  <span class="badge-op">武器ダメージブースト</span>
+                  <span class="badge-op">クリティカルブースト</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="stat-item-row">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span class="stat-item-name" style="color: #94a3b8; font-size: 0.95rem;">🎖️ 優先度 4位（汎用火力）</span>
+                <div>
+                  <span class="badge-op">PvEダメージブースト</span>
+                  <span class="badge-op">ダメージブースト</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 特別種族ボード -->
+        <div class="card" style="border: 1px solid rgba(245, 158, 11, 0.4);">
+          <div class="stat-card-title" style="color: #fcd34d;">
+            👑 一番下：特別種族ボードの狙い目
+          </div>
+          <div class="stat-item-row" style="background: rgba(255, 255, 255, 0.04);">
+            <div class="stat-item-name" style="color: #fcd34d; font-size: 0.95rem;">🎯 狙うべきスロット：1, 2, 4, 5, 7, 8</div>
+            <div class="stat-item-desc" style="color: #e2e8f0; font-size: 0.88rem; margin-top: 8px;">
+              特別種族ボードの上記スロット（1, 2, 4, 5, 7, 8）では、以下の攻撃強化オプションを集中して狙います：
+              <div style="margin-top: 8px;">
+                <span class="badge-op badge-amber">攻撃ボーナス</span>
+                <span class="badge-op badge-amber">最大攻撃力</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ページ 5: 各種リンク -->
+    <div id="links-page" class="page-content">
+      <div class="header">
+        <div class="progress-title">
+          各種便利リンク ＆ 公式コンテンツ
+        </div>
+        <div class="reset-info">
+          <div>🔗 クリックすると新しいタブでリンク先を開きます</div>
+        </div>
+      </div>
+
+      <div class="links-grid">
+        <!-- QuestLog -->
+        <a href="https://questlog.gg/aion-2/ja" target="_blank" rel="noopener noreferrer" class="link-card">
+          <div class="link-info">
+            <div class="link-title">📖 QuestLog (日本語データベース)</div>
+            <div class="link-url">https://questlog.gg/aion-2/ja</div>
+          </div>
+          <div class="link-icon">↗</div>
+        </a>
+
+        <!-- 有志スプレッドシート -->
+        <a href="https://docs.google.com/spreadsheets/d/1ApKQPsJoXYYkz7P1ry4zRHQdOw_RTjfyjg9KQ16GM_U/htmlview?gid=917421167&pru=AAABoSPTUDo*IwdZddrhxUE1M2LSwEC3ag#gid=1224103322" target="_blank" rel="noopener noreferrer" class="link-card">
+          <div class="link-info">
+            <div class="link-title">📊 有志スプレッドシート</div>
+            <div class="link-url">docs.google.com/spreadsheets/...</div>
+          </div>
+          <div class="link-icon">↗</div>
+        </a>
+
+        <!-- 公式サイト -->
+        <a href="https://aion2.plaync.com/ja-jp/index?redirect=false" target="_blank" rel="noopener noreferrer" class="link-card">
+          <div class="link-info">
+            <div class="link-title">🌐 AION2 公式サイト</div>
+            <div class="link-url">https://aion2.plaync.com/ja-jp/index</div>
+          </div>
+          <div class="link-icon">↗</div>
+        </a>
+
+        <!-- Discord -->
+        <a href="https://discord.gg/FFE9VNKqhF" target="_blank" rel="noopener noreferrer" class="link-card">
+          <div class="link-info">
+            <div class="link-title">💬 公式 Discord</div>
+            <div class="link-url">https://discord.gg/FFE9VNKqhF</div>
+          </div>
+          <div class="link-icon">↗</div>
+        </a>
+
+        <!-- YouTube -->
+        <a href="https://www.youtube.com/@AION2_JP" target="_blank" rel="noopener noreferrer" class="link-card">
+          <div class="link-info">
+            <div class="link-title">▶️ 公式 YouTube チャンネル</div>
+            <div class="link-url">https://www.youtube.com/@AION2_JP</div>
+          </div>
+          <div class="link-icon">↗</div>
+        </a>
+
+        <!-- X (Twitter) -->
+        <a href="https://x.com/AION2_JP" target="_blank" rel="noopener noreferrer" class="link-card">
+          <div class="link-info">
+            <div class="link-title">🐦 公式 X (旧Twitter)</div>
+            <div class="link-url">https://x.com/AION2_JP</div>
+          </div>
+          <div class="link-icon">↗</div>
+        </a>
+
+        <!-- Twitch Drops -->
+        <a href="https://www.twitch.tv/directory/category/aion-2" target="_blank" rel="noopener noreferrer" class="link-card">
+          <div class="link-info">
+            <div class="link-title">💜 Twitch Drops / 配信カテゴリ</div>
+            <div class="link-url">https://www.twitch.tv/directory/category/aion-2</div>
+          </div>
+          <div class="link-icon">↗</div>
+        </a>
+
+        <!-- inven -->
+        <a href="https://aion2.inven.co.kr/" target="_blank" rel="noopener noreferrer" class="link-card">
+          <div class="link-info">
+            <div class="link-title">🇰🇷 AION2 inven (韓国攻略コミュニティ)</div>
+            <div class="link-url">https://aion2.inven.co.kr/</div>
+          </div>
+          <div class="link-icon">↗</div>
+        </a>
+      </div>
+    </div>
+
+    <!-- フッター -->
+    <div class="footer-info">
+      <div>進捗・背景画像はこのデバイスのブラウザに自動保存されます</div>
+      <div>デイリーリセット：16:00 • ウィークリーリセット：水曜日 16:00</div>
+    </div>
+  </div>
+
+  <script>
+    // --- タスクデータ ---
+    const taskData = {
+      daily: [
+        { id: 'd1', title: 'デイリー任務 (Daily Duty)' },
+        { id: 'd2', title: '入場可能なダンジョン (Available Dungeons)', sub: 'オープンしているダンジョンを周回' },
+        { id: 'd3', title: 'アビス (Abyss)', sub: '毎日のアビス参加' },
+        { id: 'd4', title: '採集 (Gathering)', sub: '毎日の採集ルート / 素材集め' },
+        { id: 'd5', title: 'ギーナ抽出・上限 (Kinah)', sub: '毎日のギーナ獲得上限まで獲得' },
+        { id: 'd6', title: 'ペット/乗り物のソウル育成 (Pet/Mount Soul)', sub: '10ソウル解放に向けてソウルを収集' },
+        { id: 'd7', title: 'デイリー報酬 (Daily Rewards)', sub: 'ログイン、ショップ、受け取り' },
+        { id: 'd8', title: 'シューゴフェスタの鍵 (Shugo Fest Keys)', sub: '毎日のシューゴフェスタの鍵を獲得' }
+      ],
+      weekly: [
+        { id: 'w1', title: '遠征 (Expedition)' },
+        { id: 'w2', title: '遠征目標 (Expeditions)', sub: '週間の遠征目標を達成' },
+        { id: 'w3', title: '超越 (Transcendence)' },
+        { id: 'w4', title: '聖域 (Sanctuary)' },
+        { id: 'w5', title: 'アビス / AP (Abyss / AP)', sub: '週間のアビスポイント獲得' },
+        { id: 'w6', title: 'ウィークリーショップ (Weekly Shop)', sub: '週間の購入制限アイテム' },
+        { id: 'w7', title: '覚醒' },
+        { id: 'w8', title: '征服 (Conquest)' },
+        { id: 'w9', title: '悪夢 (Nightmare)', sub: '週制限通貨の上限達成' },
+        { id: 'w10', title: 'デイリーダンジョン (Daily Dungeon)' },
+        { id: 'w11', title: '補給依頼 (Supply Request)' },
+        { id: 'w12', title: 'オードエネルギー制作/購入' },
+        { id: 'w13', title: 'シーズンミッション' }
+      ],
+      static: [
+        { id: 's1', title: '地域クエスト (Regional Quests)' },
+        { id: 's2', title: '封印されたダンジョン (Sealed Dungeons)' },
+        { id: 's3', title: '要塞・拠点 (Strongholds)' },
+        { id: 's4', title: 'エンピリアンの痕跡収集 (Empyrean Trace Collection)' },
+        { id: 's5', title: '地域コンプリート (Region Completion)' },
+        { id: 's6', title: 'アビス進行度 (Abyss Progression)' },
+        { id: 's7', title: '初回限定の重要報酬 (Important One-Time Rewards)' },
+        { id: 's8', title: '図鑑・収集目標 (Collection Objectives)' }
+      ]
+    };
+
+    // --- メインチャートデータ ---
+    const chartSectionsData = [
+      {
+        sectionId: 'section1',
+        items: [
+          { id: 'c1_1', title: 'メインクエスト進行 ＆ サブクエスト完了', sub: 'メインを進めながら青アクセとルーンがもらえるサブクエストを行う' },
+          { id: 'c1_2', title: 'ダンジョン周回と石板ポイント回収', sub: '余裕があればダンジョンへ行き、石板ポイントを回収' },
+          { id: 'c1_3', title: '装備強化目安の達成', sub: '青装備を+3まで強化、金装備は+5程度まで強化' },
+          { id: 'c1_4', title: '魔石刻印の実施', sub: '青装備：緑が1個以上 / 金装備：中級刻印を使って青2個以上' }
+        ]
+      },
+      {
+        sectionId: 'section2',
+        items: [
+          { id: 'c2_1', title: 'アビス入場(クエスト報告) ＆ 羽集め', sub: '敵が多ければ戻ってダンジョン巡りや羽集めを優先' },
+          { id: 'c2_2', title: 'サブクエ・羽・ダンジョン全コンプ ＆ 金ブレスレット獲得', sub: 'コンプ後、メインクエスト進行で金ブレスレットを入手' },
+          { id: 'c2_3', title: '探索ドラウプニル 3回消化', sub: '確定報酬：肩 または 手' },
+          { id: 'c2_4', title: '物質変換での装備昇格', sub: 'ベルト、アミュレットを物質変換で金装備に昇格させる' },
+          { id: 'c2_5', title: '強化石の確保ルート周回', sub: '強化石が不足する場合はデイリーダンジョン、または相手陣営のダンジョンへ' }
+        ]
+      },
+      {
+        sectionId: 'section3',
+        items: [
+          { id: 'c3_1', title: '探索バクロンの空中島 3回クリア', sub: '確定報酬は胴がなければ胴、あれば未所持部位を獲得' },
+          { id: 'c3_2', title: 'ウルググ峡谷でのアクセ狙い', sub: 'アクセサリの獲得・厳選を並行して実施' },
+          { id: 'c3_3', title: 'ドロップ金装備の+7強化', sub: '獲得した金装備を+7まで強化' },
+          { id: 'c3_4', title: '相手陣営のダンジョン攻略', sub: '余裕があれば相手陣営の？ダンジョンを攻略' }
+        ]
+      },
+      {
+        sectionId: 'section4',
+        items: [
+          { id: 'c4_1', title: '超越1 チャレンジ', sub: '超越1ダンジョンのクリアを目指す' },
+          { id: 'c4_2', title: '各青装備の金装備化', sub: '残っている青装備を順次金装備へ入れ替え' }
+        ]
+      },
+      {
+        sectionId: 'section5',
+        items: [
+          { id: 'c5_1', title: '超越2 チャレンジ', sub: '超越2ダンジョンの攻略' },
+          { id: 'c5_2', title: 'IL2100 目標達成', sub: '装備の強化・更新を行ってIL2100を目指す' }
+        ]
+      },
+      {
+        sectionId: 'section6',
+        items: [
+          { id: 'c6_1', title: '探索獰猛な角岩窟 3回クリア', sub: 'ドロップ・報酬の確認' },
+          { id: 'c6_2', title: '未所持・低IL部分の金装備交換', sub: '持っていない金装備かILの低い部分の金装備と交換' },
+          { id: 'c6_3', title: '征服火の神殿 または 獰猛な角岩窟 周回', sub: '周回による装備厳選と育成を進める' }
+        ]
+      },
+      {
+        sectionId: 'section7',
+        items: [
+          { id: 'c7_1', title: '超越3 チャレンジ', sub: '超越3ダンジョンの攻略' },
+          { id: 'c7_2', title: '征服周回・製作装備によるIL2500目標', sub: '征服周回や製作装備を作成しIL2500を目指す' }
+        ]
+      },
+      {
+        sectionId: 'section8',
+        items: [
+          { id: 'c8_1', title: '超越4 チャレンジ', sub: '超越4ダンジョンの攻略' },
+          { id: 'c8_2', title: '金装備厳選 ＆ 限界突破でIL2800目標', sub: '金装備の厳選と限界突破を進行しIL2800を目指す' }
+        ]
+      },
+      {
+        sectionId: 'section9',
+        items: [
+          { id: 'c9_1', title: '聖域ルドラ 攻略', sub: 'エンドコンテンツ「聖域ルドラ」に挑戦' }
+        ]
+      },
+      {
+        sectionId: 'sectionTips',
+        items: [
+          { id: 'ct_1', title: 'ILが足りない場合：ディーヴァニオン結晶交換', sub: '各コンテンツのショップでディーヴァニオン結晶を交換して補強' },
+          { id: 'ct_2', title: '悪夢ショップのポイント保持ルール', sub: '悪夢ショップのポイントは14000ポイント以下には減らさないように管理' }
+        ]
+      }
+    ];
+
+    // --- リアルタイム時計 ＆ タイマー計算 ---
+    const riftHours = [2, 5, 8, 11, 14, 17, 20, 23];
+    const artifactDays = [1, 4, 6]; // 月曜日(1), 木曜日(4), 土曜日(6)
+
+    function updateTimers() {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      
+      // 1. 日本時間表示
+      const timeStr = now.toLocaleTimeString('ja-JP', { hour12: false });
+      document.getElementById('japan-time').textContent = `🇯🇵 日本時間 ${timeStr}`;
+
+      // 2. 亀裂カウントダウン
+      const currentHour = now.getHours();
+      let nextRiftHour = riftHours.find(h => h > currentHour);
+      let targetRift = new Date(now);
+
+      if (nextRiftHour !== undefined) {
+        targetRift.setHours(nextRiftHour, 0, 0, 0);
+      } else {
+        targetRift.setDate(targetRift.getDate() + 1);
+        targetRift.setHours(2, 0, 0, 0);
+      }
+
+      const diffRiftSec = Math.floor((targetRift - now) / 1000);
+      const rH = Math.floor(diffRiftSec / 3600);
+      const rM = Math.floor((diffRiftSec % 3600) / 60);
+      const rS = diffRiftSec % 60;
+      document.getElementById('rift-timer').textContent = `⏳ あと ${rH}時間${pad(rM)}分${pad(rS)}秒`;
+
+      // 3. アーティファクト戦カウントダウン (月・木・土 21:00)
+      let targetArtifact = null;
+      
+      for (let dayOffset = 0; dayOffset <= 7; dayOffset++) {
+        const testDate = new Date(now);
+        testDate.setDate(now.getDate() + dayOffset);
+        const dayOfWeek = testDate.getDay();
+
+        if (artifactDays.includes(dayOfWeek)) {
+          testDate.setHours(21, 0, 0, 0);
+          if (testDate > now) {
+            targetArtifact = testDate;
+            break;
+          }
+        }
+      }
+
+      if (targetArtifact) {
+        const diffArtSec = Math.floor((targetArtifact - now) / 1000);
+        const aD = Math.floor(diffArtSec / 86400);
+        const aH = Math.floor((diffArtSec % 86400) / 3600);
+        const aM = Math.floor((diffArtSec % 3600) / 60);
+        const aS = diffArtSec % 60;
+
+        let artText = "⏳ あと ";
+        if (aD > 0) artText += `${aD}日 `;
+        artText += `${aH}時間${pad(aM)}分${pad(aS)}秒`;
+
+        document.getElementById('artifact-timer').textContent = artText;
+      }
+    }
+
+    setInterval(updateTimers, 1000);
+    updateTimers();
+
+    // --- タブ切り替え ---
+    function switchTab(pageId, btnEl) {
+      document.querySelectorAll('.page-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      
+      document.getElementById(pageId).classList.add('active');
+      btnEl.classList.add('active');
+    }
+
+    // --- LocalStorage ---
+    function loadState(key) {
+      return JSON.parse(localStorage.getItem(key) || '{}');
+    }
+
+    function saveState(key, state) {
+      localStorage.setItem(key, JSON.stringify(state));
+    }
+
+    // --- チェックリスト描画 ---
+    function renderCategory(catKey, tasks) {
+      const state = loadState('aion2_checklist_v10');
+      const listEl = document.getElementById(`list-${catKey}`);
+      listEl.innerHTML = '';
+      
+      let completedCount = 0;
+
+      tasks.forEach(task => {
+        const isChecked = !!state[task.id];
+        if (isChecked) completedCount++;
+
+        const li = document.createElement('li');
+        li.className = `task-item ${isChecked ? 'completed' : ''}`;
+        li.onclick = () => toggleTask(task.id);
+
+        li.innerHTML = `
+          <div class="checkbox"></div>
+          <div class="task-content">
+            <div class="task-main">${task.title}</div>
+            ${task.sub ? `<div class="task-sub">${task.sub}</div>` : ''}
+          </div>
+        `;
+        listEl.appendChild(li);
+      });
+
+      document.getElementById(`count-${catKey}`).textContent = `${completedCount}/${tasks.length}`;
+      return { completed: completedCount, total: tasks.length };
+    }
+
+    function toggleTask(id) {
+      const state = loadState('aion2_checklist_v10');
+      state[id] = !state[id];
+      saveState('aion2_checklist_v10', state);
+      renderAll();
+    }
+
+    function resetAllChecklist() {
+      if (confirm('日課・週課・常設リストのチェックをすべてリセットしますか？')) {
+        localStorage.removeItem('aion2_checklist_v10');
+        renderAll();
+      }
+    }
+
+    // --- メインチャート描画 ---
+    function renderChart() {
+      const state = loadState('aion2_chart_v3');
+      let totalItems = 0;
+      let totalCompleted = 0;
+
+      chartSectionsData.forEach(sec => {
+        const container = document.getElementById(`chart-list-${sec.sectionId}`);
+        if (!container) return;
+        container.innerHTML = '';
+
+        sec.items.forEach(item => {
+          totalItems++;
+          const isChecked = !!state[item.id];
+          if (isChecked) totalCompleted++;
+
+          const div = document.createElement('div');
+          div.className = `chart-step ${isChecked ? 'completed' : ''}`;
+          div.onclick = () => toggleChartStep(item.id);
+
+          div.innerHTML = `
+            <div class="checkbox"></div>
+            <div class="task-content">
+              <div class="task-main">${item.title}</div>
+              <div class="task-sub">${item.sub}</div>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      });
+
+      const percentage = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0;
+      document.getElementById('chart-progress').textContent = `${percentage}%`;
+    }
+
+    function toggleChartStep(id) {
+      const state = loadState('aion2_chart_v3');
+      state[id] = !state[id];
+      saveState('aion2_chart_v3', state);
+      renderChart();
+    }
+
+    function resetChart() {
+      if (confirm('メインチャートのチェックをすべてリセットしますか？')) {
+        localStorage.removeItem('aion2_chart_v3');
+        renderChart();
+      }
+    }
+
+    // --- レンダリング総括 ---
+    function renderAll() {
+      const daily = renderCategory('daily', taskData.daily);
+      const weekly = renderCategory('weekly', taskData.weekly);
+      const staticVal = renderCategory('static', taskData.static);
+
+      const totalCompleted = daily.completed + weekly.completed + staticVal.completed;
+      const totalTasks = daily.total + weekly.total + staticVal.total;
+      const percentage = Math.round((totalCompleted / totalTasks) * 100);
+
+      document.getElementById('overall-progress').textContent = `${percentage}%`;
+      renderChart();
+    }
+
+    // --- 背景画像 ＆ ファイルダウンロード ---
+    function handleBgUpload(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const bgData = evt.target.result;
+          document.body.style.backgroundImage = `url('${bgData}')`;
+          localStorage.setItem('aion2_bg_image', bgData);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function loadSavedBg() {
+      const savedBg = localStorage.getItem('aion2_bg_image');
+      if (savedBg) {
+        document.body.style.backgroundImage = `url('${savedBg}')`;
+      }
+    }
+
+    function downloadSelf() {
+      const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "AION2_Checklist_Dashboard.html";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    loadSavedBg();
+    renderAll();
+  </script>
+</body>
+</html>
